@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoundSense — Hearing Health</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/realtime-observer@1.0.3/dist/realtime-observer.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#0a0d12;
+--surface:#10141c;
+--surface2:#161c28;
+--border:#1e2535;
+--accent:#4fd8c4;
+--accent2:#7b6ef6;
+--gold:#c8a96e;
+--text:#e8eaf2;
+--muted:#6b7394;
+--danger:#f45f6e;
+--success:#4fd8c4;
+--sidebar-w:260px;
+--radius:16px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
+body{display:flex}
+
+.sidebar{
+width:var(--sidebar-w);min-width:var(--sidebar-w);height:100vh;background:var(--surface);
+border-right:1px solid var(--border);display:flex;flex-direction:column;
+position:fixed;left:0;top:0;z-index:100;transition:transform .35s cubic-bezier(.4,0,.2,1);
+}
+.sidebar-logo{padding:28px 24px 20px;border-bottom:1px solid var(--border)}
+.logo-mark{display:flex;align-items:center;gap:10px}
+.logo-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2}
+.logo-text{font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:500;letter-spacing:.02em;color:var(--text)}
+.logo-sub{font-size:.65rem;font-weight:400;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
+
+.sidebar-nav{flex:1;padding:16px 12px;overflow-y:auto}
+.nav-section-label{font-size:.6rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:8px 12px 6px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;cursor:pointer;transition:all .2s;margin-bottom:2px;position:relative}
+.nav-item:hover{background:var(--surface2)}
+.nav-item.active{background:linear-gradient(135deg,rgba(79,216,196,.12),rgba(123,110,246,.12));border:1px solid rgba(79,216,196,.2)}
+.nav-item.active .nav-label{color:var(--accent)}
+.nav-icon{width:36px;height:36px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.nav-item.active .nav-icon{background:rgba(79,216,196,.15)}
+.nav-icon svg{width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:1.8;transition:stroke .2s}
+.nav-item.active .nav-icon svg,.nav-item:hover .nav-icon svg{stroke:var(--accent)}
+.nav-label{font-size:.82rem;font-weight:400;color:var(--muted);transition:color .2s}
+.nav-item:hover .nav-label{color:var(--text)}
+.nav-badge{margin-left:auto;background:var(--accent2);color:#fff;font-size:.58rem;font-weight:500;padding:2px 7px;border-radius:20px}
+
+.sidebar-footer{padding:16px 12px;border-top:1px solid var(--border)}
+.store-mode-btn{width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--gold);background:rgba(200,169,110,.06);cursor:pointer;transition:all .2s}
+.store-mode-btn:hover{background:rgba(200,169,110,.12)}
+.store-mode-btn span{font-size:.78rem;font-weight:400;color:var(--gold)}
+.store-mode-btn svg{width:15px;height:15px;fill:none;stroke:var(--gold);stroke-width:1.8;flex-shrink:0}
+
+.main{flex:1;margin-left:var(--sidebar-w);height:100vh;overflow-y:auto;position:relative}
+
+.page{display:none;animation:fadeUp .4s ease}
+.page.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+.topbar{position:sticky;top:0;z-index:50;background:rgba(10,13,18,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between}
+.topbar-title{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:500;color:var(--text)}
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.icon-btn{width:36px;height:36px;border-radius:9px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s}
+.icon-btn:hover{background:var(--surface2);border-color:var(--accent)}
+.icon-btn svg{width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:1.8}
+.hamburger{display:none}
+
+.page-content{padding:32px}
+
+.hero-card{background:linear-gradient(135deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--border);border-radius:var(--radius);padding:40px;margin-bottom:28px;position:relative;overflow:hidden}
+.hero-card::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(79,216,196,.12) 0%,transparent 70%);border-radius:50%}
+.hero-card::after{content:'';position:absolute;bottom:-40px;right:80px;width:140px;height:140px;background:radial-gradient(circle,rgba(123,110,246,.1) 0%,transparent 70%);border-radius:50%}
+.hero-eyebrow{font-size:.65rem;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+.hero-title{font-family:'Cormorant Garamond',serif;font-size:2.6rem;font-weight:400;line-height:1.15;margin-bottom:16px;max-width:480px}
+.hero-title em{font-style:normal;color:var(--accent)}
+.hero-desc{font-size:.88rem;color:var(--muted);line-height:1.7;max-width:440px;margin-bottom:28px;font-weight:300}
+.btn-row{display:flex;gap:12px;flex-wrap:wrap}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0a0d12;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;padding:12px 24px;border-radius:10px;border:none;cursor:pointer;transition:all .25s;text-decoration:none}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(79,216,196,.25)}
+.btn-outline{display:inline-flex;align-items:center;gap:8px;background:transparent;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:400;padding:12px 24px;border-radius:10px;border:1px solid var(--border);cursor:pointer;transition:all .25s}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary svg,.btn-outline svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;transition:all .25s}
+.stat-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.stat-num{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:400;color:var(--accent);line-height:1}
+.stat-label{font-size:.72rem;color:var(--muted);margin-top:6px;font-weight:300}
+
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;cursor:pointer;transition:all .25s}
+.card:hover{border-color:rgba(79,216,196,.3);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.card-icon svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:1.8}
+.card-title{font-size:.92rem;font-weight:500;margin-bottom:8px;color:var(--text)}
+.card-desc{font-size:.78rem;color:var(--muted);line-height:1.65;font-weight:300}
+.card-arrow{margin-top:16px;display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--accent);font-weight:400}
+.card-arrow svg{width:12px;height:12px;fill:none;stroke:var(--accent);stroke-width:2}
+
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.section-title{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:400}
+.section-sub{font-size:.75rem;color:var(--muted);margin-top:3px;font-weight:300}
+
+.progress-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:24px}
+.progress-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.progress-step-label{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.progress-pct{font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--accent)}
+.progress-bar-wrap{height:4px;background:var(--border);border-radius:4px;overflow:hidden}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width .5s ease}
+
+.question-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:16px}
+.q-num{font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.q-text{font-family:'Cormorant Garamond',serif;font-size:1.45rem;font-weight:400;line-height:1.4;margin-bottom:24px}
+.options-list{display:flex;flex-direction:column;gap:10px}
+.option-btn{display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all .2s;text-align:left;width:100%;font-family:'DM Sans',sans-serif}
+.option-btn:hover{border-color:rgba(79,216,196,.4);background:rgba(79,216,196,.06)}
+.option-btn.selected{border-color:var(--accent);background:rgba(79,216,196,.1)}
+.option-dot{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--muted);flex-shrink:0;transition:all .2s;position:relative}
+.option-btn.selected .option-dot{border-color:var(--accent);background:var(--accent)}
+.option-dot::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);width:7px;height:7px;border-radius:50%;background:#0a0d12;transition:transform .2s}
+.option-btn.selected .option-dot::after{transform:translate(-50%,-50%) scale(1)}
+.option-text{font-size:.84rem;color:var(--text);font-weight:300}
+
+.audio-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:16px;text-align:center}
+.audio-visualizer{display:flex;align-items:flex-end;justify-content:center;gap:4px;height:60px;margin:24px auto}
+.bar{width:5px;background:var(--accent);border-radius:3px;transition:height .15s ease;opacity:.4}
+.bar.active{opacity:1;animation:pulse-bar 1s ease infinite alternate}
+@keyframes pulse-bar{from{transform:scaleY(.5)}to{transform:scaleY(1)}}
+.audio-btn{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;transition:all .25s;box-shadow:0 0 0 0 rgba(79,216,196,.4)}
+.audio-btn.playing{animation:pulse-ring 1.5s ease infinite}
+@keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(79,216,196,.4)}70%{box-shadow:0 0 0 20px rgba(79,216,196,0)}100%{box-shadow:0 0 0 0 rgba(79,216,196,0)}}
+.audio-btn svg{width:24px;height:24px;fill:#0a0d12;stroke:none}
+.audio-freq-label{font-size:.75rem;color:var(--muted);margin-bottom:6px}
+.audio-hz{font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:var(--text)}
+.can-hear-btns{display:flex;gap:12px;justify-content:center;margin-top:20px}
+.can-btn{flex:1;max-width:140px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:400;color:var(--muted);transition:all .2s}
+.can-btn.yes:hover,.can-btn.yes.active{background:rgba(79,216,196,.1);border-color:var(--accent);color:var(--accent)}
+.can-btn.no:hover,.can-btn.no.active{background:rgba(244,95,110,.1);border-color:var(--danger);color:var(--danger)}
+
+.result-hero{background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border);border-radius:var(--radius);padding:40px;margin-bottom:24px;text-align:center;position:relative;overflow:hidden}
+.result-hero::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.score-ring{width:140px;height:140px;position:relative;margin:0 auto 24px}
+.score-svg{width:140px;height:140px;transform:rotate(-90deg)}
+.score-track{fill:none;stroke:var(--border);stroke-width:10}
+.score-fill{fill:none;stroke:url(#scoreGrad);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1)}
+.score-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.score-num{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:400;color:var(--text);display:block;line-height:1}
+.score-unit{font-size:.65rem;color:var(--muted);font-weight:300}
+.result-level{font-size:.65rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px}
+.result-title{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:400;margin-bottom:12px}
+.result-desc{font-size:.85rem;color:var(--muted);line-height:1.7;max-width:420px;margin:0 auto 28px;font-weight:300}
+
+.result-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.metric-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:center}
+.metric-val{font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--accent)}
+.metric-label{font-size:.68rem;color:var(--muted);margin-top:4px;font-weight:300}
+
+.freq-chart{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:24px}
+.freq-bars{display:flex;align-items:flex-end;gap:8px;height:100px;margin-top:20px}
+.freq-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.freq-bar-fill{width:100%;border-radius:6px 6px 0 0;transition:height .8s ease}
+.freq-bar-label{font-size:.62rem;color:var(--muted);white-space:nowrap}
+
+.cta-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:28px}
+.cta-card{border-radius:var(--radius);padding:24px;cursor:pointer;transition:all .25s;border:1px solid transparent}
+.cta-card.primary-cta{background:linear-gradient(135deg,rgba(79,216,196,.15),rgba(123,110,246,.15));border-color:rgba(79,216,196,.3)}
+.cta-card.secondary-cta{background:var(--surface);border-color:var(--border)}
+.cta-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.3)}
+.cta-card-icon{font-size:1.8rem;margin-bottom:12px}
+.cta-card-title{font-size:.88rem;font-weight:500;margin-bottom:6px}
+.cta-card-desc{font-size:.74rem;color:var(--muted);font-weight:300}
+
+.email-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:24px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:.72rem;font-weight:400;color:var(--muted);letter-spacing:.06em}
+.form-input{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:11px 14px;font-family:'DM Sans',sans-serif;font-size:.84rem;color:var(--text);outline:none;transition:all .2s}
+.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,216,196,.1)}
+.form-input::placeholder{color:var(--muted)}
+.consent-row{display:flex;align-items:flex-start;gap:10px;margin-top:6px}
+.consent-check{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);background:var(--surface2);flex-shrink:0;cursor:pointer;margin-top:2px;appearance:none;-webkit-appearance:none;transition:all .2s}
+.consent-check:checked{background:var(--accent);border-color:var(--accent)}
+.consent-text{font-size:.74rem;color:var(--muted);line-height:1.55;font-weight:300}
+
+.infographic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:28px}
+.info-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:all .25s}
+.info-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.3);border-color:rgba(79,216,196,.25)}
+.info-card-header{padding:28px 24px 20px;position:relative}
+.info-card-badge{display:inline-block;font-size:.6rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;padding:4px 10px;border-radius:20px;margin-bottom:12px}
+.info-card-title{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:400;margin-bottom:8px}
+.info-card-desc{font-size:.78rem;color:var(--muted);line-height:1.65;font-weight:300}
+.info-card-visual{padding:0 24px 24px;margin-top:4px}
+.mini-chart{height:64px;display:flex;align-items:flex-end;gap:5px}
+.mini-bar{border-radius:4px 4px 0 0;flex:1;min-height:8px;transition:all .3s}
+.info-wave{display:flex;align-items:center;height:40px;gap:1px}
+.wave-dot{width:3px;border-radius:2px;flex-shrink:0}
+.info-tag-row{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap}
+.info-tag{font-size:.65rem;padding:3px 9px;border-radius:20px;background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+
+.store-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.store-action{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;transition:all .25s}
+.store-action:hover{border-color:rgba(79,216,196,.3);transform:translateY(-2px)}
+.store-action svg{width:32px;height:32px;fill:none;stroke:var(--accent);stroke-width:1.5;margin-bottom:16px}
+.store-action-title{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:400;margin-bottom:6px}
+.store-action-desc{font-size:.76rem;color:var(--muted);font-weight:300}
+.qr-box{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px;margin-top:16px;text-align:center}
+.qr-placeholder{width:120px;height:120px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:var(--muted)}
+.reset-btn{width:100%;padding:14px;border-radius:12px;border:1px solid var(--danger);background:rgba(244,95,110,.06);color:var(--danger);font-family:'DM Sans',sans-serif;font-size:.84rem;font-weight:400;cursor:pointer;transition:all .2s;margin-top:12px}
+.reset-btn:hover{background:rgba(244,95,110,.12)}
+
+.profile-steps{display:flex;gap:10px;margin-bottom:28px;flex-wrap:wrap}
+.step-pill{display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:.74rem;color:var(--muted)}
+.step-pill.done{border-color:rgba(79,216,196,.35);color:var(--accent);background:rgba(79,216,196,.06)}
+.step-pill.current{border-color:var(--accent2);color:var(--accent2);background:rgba(123,110,246,.08)}
+.step-pill-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:14px 20px;font-size:.82rem;color:var(--accent);z-index:999;transform:translateY(80px);opacity:0;transition:all .35s;display:flex;align-items:center;gap:10px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast svg{width:15px;height:15px;fill:none;stroke:var(--accent);stroke-width:2}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(10,13,18,.7);z-index:200;backdrop-filter:blur(4px)}
+.overlay.active{display:flex;align-items:center;justify-content:center}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:36px;max-width:420px;width:90%;position:relative}
+.modal-close{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:8px;background:var(--surface2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.modal-close svg{width:13px;height:13px;fill:none;stroke:var(--muted);stroke-width:2}
+
+.divider{height:1px;background:var(--border);margin:24px 0}
+
+@media (max-width:768px){
+:root{--sidebar-w:260px}
+.sidebar{transform:translateX(-100%)}
+.sidebar.open{transform:translateX(0)}
+.main{margin-left:0}
+.hamburger{display:flex}
+.overlay-sidebar{display:none;position:fixed;inset:0;background:rgba(10,13,18,.6);z-index:99;backdrop-filter:blur(3px)}
+.overlay-sidebar.active{display:block}
+.hero-title{font-size:1.9rem}
+.stats-row{grid-template-columns:1fr}
+.form-row{grid-template-columns:1fr}
+.store-grid{grid-template-columns:1fr}
+.page-content{padding:20px}
+.result-metrics{grid-template-columns:repeat(3,1fr)}
+}
+@media (max-width:480px){
+.hero-card{padding:24px}
+.result-metrics{grid-template-columns:1fr 1fr}
+.can-hear-btns{flex-direction:column;align-items:center}
+.can-btn{max-width:100%;width:100%}
+}
+</style>
+</head>
+<body>
+
+<div class="overlay-sidebar" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C8.686 2 6 4.686 6 8c0 2.21.895 4.21 2.343 5.657L12 17.314l3.657-3.657A7.964 7.964 0 0020 8c0-3.314-2.686-6-8-6z"/><circle cx="12" cy="8" r="2.5"/></svg>
+      </div>
+      <div>
+        <div class="logo-text">SoundSense</div>
+        <div class="logo-sub">Hearing Health</div>
+      </div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Main</div>
+    <div class="nav-item active" onclick="navigate('dashboard')">
+      <div class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+      <span class="nav-label">Dashboard</span>
+    </div>
+    <div class="nav-item" onclick="navigate('profile')">
+      <div class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.582-7 8-7s8 3 8 7"/></svg></div>
+      <span class="nav-label">Profile Setup</span>
+    </div>
+    <div class="nav-section-label" style="margin-top:8px">Assessment</div>
+    <div class="nav-item" onclick="navigate('hearing-test')">
+      <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 4c-3.314 0-6 2.686-6 6 0 2.485 1.505 4.627 3.677 5.565L9 18h6l-.677-2.435C16.495 14.627 18 12.485 18 10c0-3.314-2.686-6-6-6z"/></svg></div>
+      <span class="nav-label">Hearing Test</span>
+      <span class="nav-badge">New</span>
+    </div>
+    <div class="nav-item" onclick="navigate('questionnaire')">
+      <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg></div>
+      <span class="nav-label">Questionnaire</span>
+    </div>
+    <div class="nav-item" onclick="navigate('results')">
+      <div class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+      <span class="nav-label">Results</span>
+    </div>
+    <div class="nav-section-label" style="margin-top:8px">Learn</div>
+    <div class="nav-item" onclick="navigate('education')">
+      <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
+      <span class="nav-label">Education Hub</span>
+    </div>
+    <div class="nav-section-label" style="margin-top:8px">Store</div>
+    <div class="nav-item" onclick="navigate('store-mode')">
+      <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+      <span class="nav-label">Store Mode</span>
+    </div>
+    <div class="nav-item" onclick="navigate('email-results')">
+      <div class="nav-icon"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 6 12 13 22 6"/></svg></div>
+      <span class="nav-label">Email Results</span>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="store-mode-btn" onclick="navigate('store-mode')">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+      <span>Enter Store Mode</span>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="icon-btn hamburger" onclick="toggleSidebar()">
+          <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </div>
+        <div class="topbar-title">Dashboard</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+        <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></div>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="hero-card">
+        <div class="hero-eyebrow">Welcome to SoundSense</div>
+        <div class="hero-title">Your <em>hearing health</em> starts here</div>
+        <div class="hero-desc">Take a comprehensive 5-minute hearing assessment from home or in-store. Get personalised results and expert recommendations.</div>
+        <div class="btn-row">
+          <button class="btn-primary" onclick="navigate('profile')">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            Begin Assessment
+          </button>
+          <button class="btn-outline" onclick="navigate('education')">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Learn More
+          </button>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-num">1 in 3</div>
+          <div class="stat-label">Adults over 65 have hearing loss</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">10yr</div>
+          <div class="stat-label">Average delay before seeking help</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">5 min</div>
+          <div class="stat-label">Time to complete your screening</div>
+        </div>
+      </div>
+      <div class="section-header">
+        <div>
+          <div class="section-title">Quick Start</div>
+          <div class="section-sub">Jump directly to any section</div>
+        </div>
+      </div>
+      <div class="cards-grid">
+        <div class="card" onclick="navigate('hearing-test')">
+          <div class="card-icon" style="background:linear-gradient(135deg,#4fd8c4,#2ab8a4)"><svg viewBox="0 0 24 24"><path d="M12 4c-3.314 0-6 2.686-6 6 0 2.485 1.505 4.627 3.677 5.565L9 18h6l-.677-2.435C16.495 14.627 18 12.485 18 10c0-3.314-2.686-6-6-6z"/></svg></div>
+          <div class="card-title">Audio Hearing Test</div>
+          <div class="card-desc">Listen to tones across frequencies. Identify what you can and can't hear clearly.</div>
+          <div class="card-arrow">Start Test <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </div>
+        <div class="card" onclick="navigate('questionnaire')">
+          <div class="card-icon" style="background:linear-gradient(135deg,#7b6ef6,#5b4ef0)"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg></div>
+          <div class="card-title">Self-Assessment</div>
+          <div class="card-desc">Answer questions about your daily hearing experiences and lifestyle.</div>
+          <div class="card-arrow">Take Quiz <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </div>
+        <div class="card" onclick="navigate('results')">
+          <div class="card-icon" style="background:linear-gradient(135deg,#c8a96e,#a87c3e)"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+          <div class="card-title">View Results</div>
+          <div class="card-desc">See your personalised hearing profile with plain-language explanations.</div>
+          <div class="card-arrow">View <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </div>
+        <div class="card" onclick="navigate('education')">
+          <div class="card-icon" style="background:linear-gradient(135deg,#f45f6e,#d0354a)"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
+          <div class="card-title">Education Hub</div>
+          <div class="card-desc">Interactive infographics on hearing health, loss types, and hearing aids.</div>
+          <div class="card-arrow">Explore <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE SETUP -->
+  <div class="page" id="page-profile">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="icon-btn hamburger" onclick="toggleSidebar()"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+        <div class="topbar-title">Profile Setup</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-primary" onclick="navigate('hearing-test')" style="padding:8px 18px;font-size:.78rem">Continue <svg viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="9 18 15 12 9 6"/></svg></button>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="profile-steps">
+        <div class="step-pill current"><div class="step-pill-dot"></div>Profile</div>
+        <div class="step-pill"><div class="step-pill-dot"></div>Audio Test</div>
+        <div class="step-pill"><div class="step-pill-dot"></div>Questionnaire</div>
+        <div class="step-pill"><div class="step-pill-dot"></div>Results</div>
+      </div>
+      <div class="hero-card" style="margin-bottom:24px">
+        <div class="hero-eyebrow">Step 1 of 4</div>
+        <div class="hero-title" style="font-size:2rem">Tell us about <em>yourself</em></div>
+        <div class="hero-desc">A few quick details help us personalise your hearing assessment.</div>
+      </div>
+      <div class="question-card">
+        <div class="q-num">Question 1</div>
+        <div class="q-text">What is your age range?</div>
+        <div class="options-list">
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">50 – 59 years</span></button>
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">60 – 69 years</span></button>
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">70 – 79 years</span></button>
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">80 years or older</span></button>
+        </div>
+      </div>
+      <div class="question-card">
+        <div class="q-num">Question 2</div>
+        <div class="q-text">Have you ever worn hearing aids?</div>
+        <div class="options-list">
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">No, never</span></button>
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">Yes, currently</span></button>
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">Yes, in the past</span></button>
+        </div>
+      </div>
+      <div class="question-card">
+        <div class="q-num">Question 3</div>
+        <div class="q-text">How would you describe your current hearing?</div>
+        <div class="options-list">
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">Excellent — no issues</span></button>
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">Good — occasional difficulties</span></button>
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">Fair — regular difficulties</span></button>
+          <button class="option-btn" onclick="selectOption(this)"><div class="option-dot"></div><span class="option-text">Poor — significant loss</span></button>
+        </div>
+      </div>
+      <div style="text-align:right;margin-top:8px">
+        <button class="btn-primary" onclick="navigate('hearing-test')">Next: Audio Test <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEARING TEST -->
+  <div class="page" id="page-hearing-test">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="icon-btn hamburger" onclick="toggleSidebar()"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+        <div class="topbar-title">Hearing Test</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="icon-btn" onclick="restartTest()" title="Restart"><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg></div>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="profile-steps">
+        <div class="step-pill done"><div class="step-pill-dot"></div>Profile</div>
+        <div class="step-pill current"><div class="step-pill-dot"></div>Audio Test</div>
+        <div class="step-pill"><div class="step-pill-dot"></div>Questionnaire</div>
+        <div class="step-pill"><div class="step-pill-dot"></div>Results</div>
+      </div>
+      <div class="progress-card">
+        <div class="progress-header">
+          <div>
+            <div class="progress-step-label">Audio Assessment Progress</div>
+          </div>
+          <div class="progress-pct" id="testPct">0%</div>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="testBar" style="width:0%"></div></div>
+      </div>
+      <div class="audio-card" id="audioTestCard">
+        <div class="audio-freq-label">Testing Frequency</div>
+        <div class="audio-hz" id="currentHz">500 Hz</div>
+        <div class="audio-visualizer" id="audioViz">
+          <div class="bar" style="height:20px" data-i="0"></div>
+          <div class="bar" style="height:35px" data-i="1"></div>
+          <div class="bar" style="height:50px" data-i="2"></div>
+          <div class="bar" style="height:40px" data-i="3"></div>
+          <div class="bar" style="height:55px" data-i="4"></div>
+          <div class="bar" style="height:30px" data-i="5"></div>
+          <div class="bar" style="height:45px" data-i="6"></div>
+          <div class="bar" style="height:25px" data-i="7"></div>
+          <div class="bar" style="height:38px" data-i="8"></div>
+          <div class="bar" style="height:52px" data-i="9"></div>
+          <div class="bar" style="height:28px" data-i="10"></div>
+          <div class="bar" style="height:42px" data-i="11"></div>
+        </div>
+        <button class="audio-btn" id="playBtn" onclick="toggleAudio()">
+          <svg id="playIcon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:20px;font-weight:300">Press play, then tell us if you can hear this tone.<br>Use headphones for best results.</div>
+        <div class="can-hear-btns">
+          <button class="can-btn yes" onclick="heardTone(true)"><i class="fas fa-check"></i> Yes, I can hear it</button>
+          <button class="can-btn no" onclick="heardTone(false)"><i class="fas fa-times"></i> No, I cannot hear it</button>
+        </div>
+      </div>
+      <div class="question-card">
+        <div class="q-num">Audio Note</div>
+        <div class="q-text" style="font-size:1.1rem">Ensure your device volume is at a comfortable level before starting. A quiet environment gives the most accurate results.</div>
+        <div style="font-size:.78rem;color:var(--muted);font-weight:300;margin-top:8px">We test: 500 Hz · 1 kHz · 2 kHz · 4 kHz · 6 kHz · 8 kHz</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUESTIONNAIRE -->
+  <div class="page" id="page-questionnaire">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="icon-btn hamburger" onclick="toggleSidebar()"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+        <div class="topbar-title">Self-Assessment</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-primary" onclick="navigate('results')" style="padding:8px 18px;font-size:.78rem">View Results</button>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="profile-steps">
+        <div class="step-pill done"><div class="step-pill-dot"></div>Profile</div>
+        <div class="step-pill done"><div class="step-pill-dot"></div>Audio Test</div>
+        <div class="step-pill current"><div class="step-pill-dot"></div>Questionnaire</div>
+        <div class="step-pill"><div class="step-pill-dot"></div>Results</div>
+      </div>
+      <div class="progress-card">
+        <div class="progress-header">
+          <div><div class="progress-step-label">Questionnaire Progress</div></div>
+          <div class="progress-pct" id="qPct">0 / 5</div>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="qBar" style="width:0%"></div></div>
+      </div>
+      <div class="question-card">
+        <div class="q-num">Question 1 of 5</div>
+        <div class="q-text">Do you often ask people to repeat themselves?</div>
+        <div class="options-list">
+          <button class="option-btn" onclick="selectOption(this);advanceQ(1)"><div class="option-dot"></div><span class="option-text">Never</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(1)"><div class="option-dot"></div><span class="option-text">Sometimes (once a day)</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(1)"><div class="option-dot"></div><span class="option-text">Often (multiple times a day)</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(1)"><div class="option-dot"></div><span class="option-text">Almost always</span></button>
+        </div>
+      </div>
+      <div class="question-card">
+        <div class="q-num">Question 2 of 5</div>
+        <div class="q-text">Do you struggle to follow conversations in noisy places like restaurants?</div>
+        <div class="options-list">
+          <button class="option-btn" onclick="selectOption(this);advanceQ(2)"><div class="option-dot"></div><span class="option-text">No difficulty at all</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(2)"><div class="option-dot"></div><span class="option-text">Slight difficulty</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(2)"><div class="option-dot"></div><span class="option-text">Moderate difficulty</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(2)"><div class="option-dot"></div><span class="option-text">Significant difficulty</span></button>
+        </div>
+      </div>
+      <div class="question-card">
+        <div class="q-num">Question 3 of 5</div>
+        <div class="q-text">Do you have ringing or buzzing in your ears (tinnitus)?</div>
+        <div class="options-list">
+          <button class="option-btn" onclick="selectOption(this);advanceQ(3)"><div class="option-dot"></div><span class="option-text">No, never</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(3)"><div class="option-dot"></div><span class="option-text">Occasionally</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(3)"><div class="option-dot"></div><span class="option-text">Regularly</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(3)"><div class="option-dot"></div><span class="option-text">Constantly</span></button>
+        </div>
+      </div>
+      <div class="question-card">
+        <div class="q-num">Question 4 of 5</div>
+        <div class="q-text">Do you turn up the TV louder than others prefer?</div>
+        <div class="options-list">
+          <button class="option-btn" onclick="selectOption(this);advanceQ(4)"><div class="option-dot"></div><span class="option-text">Never — same volume as others</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(4)"><div class="option-dot"></div><span class="option-text">Occasionally a little louder</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(4)"><div class="option-dot"></div><span class="option-text">Usually noticeably louder</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(4)"><div class="option-dot"></div><span class="option-text">Always much louder</span></button>
+        </div>
+      </div>
+      <div class="question-card">
+        <div class="q-num">Question 5 of 5</div>
+        <div class="q-text">Has anyone close to you expressed concern about your hearing?</div>
+        <div class="options-list">
+          <button class="option-btn" onclick="selectOption(this);advanceQ(5)"><div class="option-dot"></div><span class="option-text">No, no one has mentioned it</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(5)"><div class="option-dot"></div><span class="option-text">Once or twice</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(5)"><div class="option-dot"></div><span class="option-text">Several times</span></button>
+          <button class="option-btn" onclick="selectOption(this);advanceQ(5)"><div class="option-dot"></div><span class="option-text">Frequently, they are very concerned</span></button>
+        </div>
+      </div>
+      <div style="text-align:right;margin-top:8px">
+        <button class="btn-primary" onclick="navigate('results')">See My Results <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="page" id="page-results">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="icon-btn hamburger" onclick="toggleSidebar()"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+        <div class="topbar-title">Your Results</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-outline" onclick="navigate('email-results')" style="padding:8px 18px;font-size:.78rem">Email Results</button>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="result-hero">
+        <div class="score-ring">
+          <svg class="score-svg" viewBox="0 0 140 140">
+            <defs>
+              <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#4fd8c4"/>
+                <stop offset="100%" style="stop-color:#7b6ef6"/>
+              </linearGradient>
+            </defs>
+            <circle class="score-track" cx="70" cy="70" r="58"/>
+            <circle class="score-fill" cx="70" cy="70" r="58" stroke-dasharray="364.4" stroke-dashoffset="120" id="scoreCircle"/>
+          </svg>
+          <div class="score-label">
+            <span class="score-num" id="scoreNum">67</span>
+            <span class="score-unit">/ 100</span>
+          </div>
+        </div>
+        <div class="result-level" style="color:var(--gold)"><i class="fas fa-exclamation-circle"></i> Mild Hearing Loss Detected</div>
+        <div class="result-title">You may benefit from support</div>
+        <div class="result-desc">Your results indicate mild hearing loss, particularly in higher frequencies. This is very common and highly treatable. We recommend a full in-store assessment with one of our specialists.</div>
+        <div class="btn-row" style="justify-content:center">
+          <button class="btn-primary" onclick="showToast('Booking link opening…')">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Book Appointment
+          </button>
+          <button class="btn-outline" onclick="showToast('Locating nearest store…')">
+            <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Find a Store
+          </button>
+        </div>
+      </div>
+      <div class="result-metrics">
+        <div class="metric-box">
+          <div class="metric-val">Mild</div>
+          <div class="metric-label">Overall Loss Level</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val">4 / 6</div>
+          <div class="metric-label">Frequencies Passed</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val">2 kHz+</div>
+          <div class="metric-label">Affected Range</div>
+        </div>
+      </div>
+      <div class="freq-chart">
+        <div class="section-header" style="margin-bottom:0">
+          <div>
+            <div class="section-title" style="font-size:1.1rem">Frequency Response</div>
+            <div class="section-sub">How well you heard each tone</div>
+          </div>
+          <div style="display:flex;gap:14px;font-size:.68rem;color:var(--muted)">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--accent);display:inline-block"></span>Heard</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--danger);display:inline-block"></span>Missed</span>
+          </div>
+        </div>
+        <div class="freq-bars">
+          <div class="freq-bar-wrap"><div class="freq-bar-fill" style="height:90%;background:var(--accent)"></div><div class="freq-bar-label">500Hz</div></div>
+          <div class="freq-bar-wrap"><div class="freq-bar-fill" style="height:85%;background:var(--accent)"></div><div class="freq-bar-label">1kHz</div></div>
+          <div class="freq-bar-wrap"><div class="freq-bar-fill" style="height:75%;background:var(--accent)"></div><div class="freq-bar-label">2kHz</div></div>
+          <div class="freq-bar-wrap"><div class="freq-bar-fill" style="height:40%;background:var(--gold)"></div><div class="freq-bar-label">3kHz</div></div>
+          <div class="freq-bar-wrap"><div class="freq-bar-fill" style="height:25%;background:var(--danger)"></div><div class="freq-bar-label">4kHz</div></div>
+          <div class="freq-bar-wrap"><div class="freq-bar-fill" style="height:15%;background:var(--danger)"></div><div class="freq-bar-label">8kHz</div></div>
+        </div>
+      </div>
+      <div class="section-header">
+        <div>
+          <div class="section-title">What's Next?</div>
+          <div class="section-sub">Recommended actions based on your results</div>
+        </div>
+      </div>
+      <div class="cta-cards">
+        <div class="cta-card primary-cta" onclick="showToast('Opening booking…')">
+          <div class="cta-card-icon"><i class="fas fa-calendar-alt"></i></div>
+          <div class="cta-card-title">Book a Consultation</div>
+          <div class="cta-card-desc">Free 30-min in-store hearing assessment with a certified audiologist.</div>
+        </div>
+        <div class="cta-card secondary-cta" onclick="showToast('Finding stores near you…')">
+          <div class="cta-card-icon"><i class="fas fa-map-marker-alt"></i></div>
+          <div class="cta-card-title">Find Nearest Store</div>
+          <div class="cta-card-desc">Locate your nearest SoundSense clinic and check availability.</div>
+        </div>
+        <div class="cta-card secondary-cta" onclick="navigate('education')">
+          <div class="cta-card-icon"><i class="fas fa-book"></i></div>
+          <div class="cta-card-title">Learn About Options</div>
+          <div class="cta-card-desc">Explore hearing aids, assistive tech, and lifestyle strategies.</div>
+        </div>
+        <div class="cta-card secondary-cta" onclick="navigate('email-results')">
+          <div class="cta-card-icon"><i class="fas fa-envelope"></i></div>
+          <div class="cta-card-title">Email My Results</div>
+          <div class="cta-card-desc">Get a detailed PDF report sent directly to your inbox.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDUCATION HUB -->
+  <div class="page" id="page-education">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="icon-btn hamburger" onclick="toggleSidebar()"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+        <div class="topbar-title">Education Hub</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="hero-card" style="padding:32px">
+        <div class="hero-eyebrow">Interactive Learning</div>
+        <div class="hero-title" style="font-size:2rem">Understand your <em>hearing</em></div>
+        <div class="hero-desc">Bite-sized infographics that explain hearing loss, causes, and solutions — without the jargon.</div>
+      </div>
+      <div class="infographic-grid">
+        <div class="info-card" onclick="openInfoModal('ageRelated')">
+          <div class="info-card-header" style="background:linear-gradient(135deg,rgba(79,216,196,.08),rgba(79,216,196,.02))">
+            <div class="info-card-badge" style="background:rgba(79,216,196,.12);color:var(--accent)">Age-Related</div>
+            <div class="info-card-title">Presbycusis: Hearing loss with age</div>
+            <div class="info-card-desc">The most common form of hearing loss — gradual, bilateral, and very manageable with modern aids.</div>
+          </div>
+          <div class="info-card-visual">
+            <div class="mini-chart">
+              <div class="mini-bar" style="height:85%;background:var(--accent);opacity:.9"></div>
+              <div class="mini-bar" style="height:80%;background:var(--accent);opacity:.75"></div>
+              <div class="mini-bar" style="height:70%;background:var(--accent);opacity:.6"></div>
+              <div class="mini-bar" style="height:55%;background:var(--gold);opacity:.8"></div>
+              <div class="mini-bar" style="height:38%;background:var(--gold);opacity:.8"></div>
+              <div class="mini-bar" style="height:22%;background:var(--danger);opacity:.8"></div>
+              <div class="mini-bar" style="height:12%;background:var(--danger);opacity:.8"></div>
+            </div>
+          </div>
+          <div class="info-tag-row">
+            <span class="info-tag">High-frequency</span>
+            <span class="info-tag">Gradual onset</span>
+            <span class="info-tag">Bilateral</span>
+          </div>
+        </div>
+        <div class="info-card" onclick="openInfoModal('tinnitus')">
+          <div class="info-card-header" style="background:linear-gradient(135deg,rgba(123,110,246,.08),rgba(123,110,246,.02))">
+            <div class="info-card-badge" style="background:rgba(123,110,246,.12);color:var(--accent2)">Tinnitus</div>
+            <div class="info-card-title">Ringing in the ears explained</div>
+            <div class="info-card-desc">Up to 15% of adults experience tinnitus. Learn what causes it and how to manage symptoms effectively.</div>
+          </div>
+          <div class="info-card-visual">
+            <div class="info-wave">
+              <div class="wave-dot" style="height:8px;background:var(--accent2);opacity:.3"></div><div class="wave-dot" style="height:16px;background:var(--accent2);opacity:.4"></div><div class="wave-dot" style="height:28px;background:var(--accent2);opacity:.6"></div><div class="wave-dot" style="height:38px;background:var(--accent2);opacity:.8"></div><div class="wave-dot" style="height:44px;background:var(--accent2)"></div><div class="wave-dot" style="height:38px;background:var(--accent2);opacity:.8"></div><div class="wave-dot" style="height:28px;background:var(--accent2);opacity:.6"></div><div class="wave-dot" style="height:16px;background:var(--accent2);opacity:.4"></div><div class="wave-dot" style="height:8px;background:var(--accent2);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div><div class="wave-dot" style="height:4px;background:var(--muted);opacity:.3"></div>
+            </div>
+          </div>
+          <div class="info-tag-row">
+            <span class="info-tag">15% of adults</span>
+            <span class="info-tag">Manageable</span>
+            <span class="info-tag">Various causes</span>
+          </div>
+        </div>
+        <div class="info-card" onclick="openInfoModal('hearingAids')">
+          <div class="info-card-header" style="background:linear-gradient(135deg,rgba(200,169,110,.08),rgba(200,169,110,.02))">
+            <div class="info-card-badge" style="background:rgba(200,169,110,.12);color:var(--gold)">Solutions</div>
+            <div class="info-card-title">Modern hearing aids demystified</div>
+            <div class="info-card-desc">Today's devices are nearly invisible, rechargeable, and connect to your phone. Discover the options.</div>
+          </div>
+          <div class="info-card-visual">
+            <div style="display:flex;gap:8px;justify-content:space-around;padding:4px 0">
+              <div style="text-align:center"><div style="width:28px;height:28px;border-radius:50%;background:rgba(200,169,110,.2);border:2px solid var(--gold);margin:0 auto 4px"></div><div style="font-size:.6rem;color:var(--muted)">ITE</div></div>
+              <div style="text-align:center"><div style="width:28px;height:36px;border-radius:14px 14px 4px 4px;background:rgba(200,169,110,.2);border:2px solid var(--gold);margin:0 auto 4px"></div><div style="font-size:.6rem;color:var(--muted)">BTE</div></div>
+              <div style="text-align:center"><div style="width:20px;height:20px;border-radius:50%;background:rgba(200,169,110,.2);border:2px solid var(--gold);margin:0 auto 4px"></div><div style="font-size:.6rem;color:var(--muted)">CIC</div></div>
+              <div style="text-align:center"><div style="width:32px;height:20px;border-radius:10px;background:rgba(200,169,110,.2);border:2px solid var(--gold);margin:0 auto 4px"></div><div style="font-size:.6rem;color:var(--muted)">RIC</div></div>
+            </div>
+          </div>
+          <div class="info-tag-row">
+            <span class="info-tag">Rechargeable</span>
+            <span class="info-tag">Bluetooth</span>
+            <span class="info-tag">AI-powered</span>
+          </div>
+        </div>
+        <div class="info-card" onclick="openInfoModal('noiseInduced')">
+          <div class="info-card-header" style="background:linear-gradient(135deg,rgba(244,95,110,.08),rgba(244,95,110,.02))">
+            <div class="info-card-badge" style="background:rgba(244,95,110,.12);color:var(--danger)">Prevention</div>
+            <div class="info-card-title">Noise-induced hearing loss</div>
+            <div class="info-card-desc">Exposure to loud sounds is the second biggest cause. Learn the decibel thresholds and how to protect yourself.</div>
+          </div>
+          <div class="info-card-visual">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="display:flex;align-items:center;gap:6px"><div style="width:60%;height:6px;background:var(--accent);border-radius:3px"></div><span style="font-size:.6rem;color:var(--muted)">Safe &lt;70dB</span></div>
+              <div style="display:flex;align-items:center;gap:6px"><div style="width:78%;height:6px;background:var(--gold);border-radius:3px"></div><span style="font-size:.6rem;color:var(--muted)">Caution 70–85dB</span></div>
+              <div style="display:flex;align-items:center;gap:6px"><div style="width:92%;height:6px;background:var(--danger);border-radius:3px"></div><span style="font-size:.6rem;color:var(--muted)">Danger &gt;85dB</span></div>
+            </div>
+          </div>
+          <div class="info-tag-row">
+            <span class="info-tag">Preventable</span>
+            <span class="info-tag">Cumulative</span>
+            <span class="info-tag">All ages</span>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-header">
+        <div>
+          <div class="section-title">Our Solutions</div>
+          <div class="section-sub">Hearing aids and accessories for every lifestyle</div>
+        </div>
+      </div>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-icon" style="background:linear-gradient(135deg,#4fd8c4,#2ab8a4)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg></div>
+          <div class="card-title">Receiver-in-Canal (RIC)</div>
+          <div class="card-desc">Nearly invisible, comfortable fit with exceptional sound clarity. Our most popular style for mild-to-moderate loss.</div>
+          <div class="card-arrow">Explore <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="background:linear-gradient(135deg,#7b6ef6,#5b4ef0)"><svg viewBox="0 0 24 24"><path d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10"/><path d="M8 12h8"/></svg></div>
+          <div class="card-title">Behind-the-Ear (BTE)</div>
+          <div class="card-desc">Maximum power and durability. Ideal for severe-to-profound hearing loss with easy handling.</div>
+          <div class="card-arrow">Explore <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="background:linear-gradient(135deg,#c8a96e,#a87c3e)"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+          <div class="card-title">Completely-in-Canal (CIC)</div>
+          <div class="card-desc">Fits entirely inside the ear canal. The most discreet option for mild hearing loss.</div>
+          <div class="card-arrow">Explore <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STORE MODE -->
+  <div class="page" id="page-store-mode">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="icon-btn hamburger" onclick="toggleSidebar()"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+        <div class="topbar-title">Store Mode</div>
+      </div>
+      <div class="topbar-actions">
+        <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;background:rgba(200,169,110,.1);border:1px solid rgba(200,169,110,.25)">
+          <div style="width:7px;height:7px;border-radius:50%;background:var(--gold)"></div>
+          <span style="font-size:.72rem;color:var(--gold);font-weight:400">Staff Mode Active</span>
+        </div>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="hero-card" style="background:linear-gradient(135deg,rgba(200,169,110,.08),rgba(200,169,110,.03));border-color:rgba(200,169,110,.2)">
+        <div class="hero-eyebrow" style="color:var(--gold)">In-Store Assisted Mode</div>
+        <div class="hero-title" style="font-size:2rem">Welcome to the <em>store kiosk</em></div>
+        <div class="hero-desc">Staff: walk a customer through the hearing assessment, then reset for the next visitor or push a QR so they continue on their own device.</div>
+      </div>
+      <div class="store-grid">
+        <div class="store-action" onclick="navigate('profile')">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.582-7 8-7s8 3 8 7"/></svg>
+          <div class="store-action-title">New Customer Assessment</div>
+          <div class="store-action-desc">Start a guided hearing test from the beginning for a walk-in visitor.</div>
+        </div>
+        <div class="store-action" onclick="showQR()">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="15" y="15" width="2" height="2"/><rect x="19" y="15" width="2" height="2"/><rect x="15" y="19" width="2" height="2"/><rect x="19" y="19" width="2" height="2"/></svg>
+          <div class="store-action-title">Generate QR Code</div>
+          <div class="store-action-desc">Customer continues the assessment on their own phone.</div>
+        </div>
+        <div class="store-action" onclick="navigate('email-results')">
+          <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 6 12 13 22 6"/></svg>
+          <div class="store-action-title">Email Results Now</div>
+          <div class="store-action-desc">Send this session's results to the customer's inbox instantly.</div>
+        </div>
+        <div class="store-action" onclick="navigate('results')">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <div class="store-action-title">View Current Results</div>
+          <div class="store-action-desc">Review the current session's hearing assessment outcome.</div>
+        </div>
+      </div>
+      <div id="qrSection" style="display:none">
+        <div class="qr-box">
+          <div style="font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px">Customer Self-Service QR</div>
+          <div class="qr-placeholder">
+            <svg viewBox="0 0 60 60" width="80" height="80" style="opacity:.3">
+              <rect x="5" y="5" width="20" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+              <rect x="9" y="9" width="12" height="12" fill="currentColor"/>
+              <rect x="35" y="5" width="20" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+              <rect x="39" y="9" width="12" height="12" fill="currentColor"/>
+              <rect x="5" y="35" width="20" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+              <rect x="9" y="39" width="12" height="12" fill="currentColor"/>
+              <rect x="35" y="35" width="5" height="5" fill="currentColor"/>
+              <rect x="43" y="35" width="5" height="5" fill="currentColor"/>
+              <rect x="35" y="43" width="5" height="5" fill="currentColor"/>
+              <rect x="43" y="43" width="5" height="5" fill="currentColor"/>
+              <rect x="51" y="35" width="5" height="5" fill="currentColor"/>
+              <rect x="51" y="51" width="5" height="5" fill="currentColor"/>
+            </svg>
+          </div>
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:14px;font-weight:300">Scan to continue on your phone</div>
+          <div style="font-size:.68rem;color:var(--muted);font-family:monospace;background:var(--bg);padding:6px 12px;border-radius:6px;display:inline-block">soundsense.co/test?session=A3X9K</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <button class="reset-btn" onclick="confirmReset()">
+        <span><i class="fas fa-sync-alt"></i> &nbsp; Reset Session — Clear All Data for Next Customer</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- EMAIL RESULTS -->
+  <div class="page" id="page-email-results">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="icon-btn hamburger" onclick="toggleSidebar()"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+        <div class="topbar-title">Email Results</div>
+      </div>
+    </div>
+    <div class="page-content">
+      <div class="hero-card" style="padding:32px;margin-bottom:24px">
+        <div class="hero-eyebrow">Send Your Report</div>
+        <div class="hero-title" style="font-size:1.8rem">Get your results <em>delivered</em></div>
+        <div class="hero-desc">We'll send a detailed PDF report plus follow-up tips and your nearest store details.</div>
+      </div>
+      <div class="email-form">
+        <div class="section-title" style="font-size:1.1rem;margin-bottom:20px">Your Details</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input class="form-input" type="text" placeholder="Margaret">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input class="form-input" type="text" placeholder="Williams">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label class="form-label">Email Address</label>
+          <input class="form-input" type="email" placeholder="margaret@email.com">
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label class="form-label">Phone (optional)</label>
+          <input class="form-input" type="tel" placeholder="+44 7700 000000">
+        </div>
+        <div class="consent-row">
+          <input type="checkbox" class="consent-check" id="consent1" checked>
+          <label class="consent-text" for="consent1">Send me my hearing test results and personalised recommendations.</label>
+        </div>
+        <div class="consent-row" style="margin-top:8px">
+          <input type="checkbox" class="consent-check" id="consent2">
+          <label class="consent-text" for="consent2">I'd like to receive occasional hearing health tips and product news. You can unsubscribe anytime.</label>
+        </div>
+        <div style="margin-top:24px">
+          <button class="btn-primary" onclick="sendEmail()" style="width:100%;justify-content:center;padding:15px">
+            <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 6 12 13 22 6"/></svg>
+            Send My Results Report
+          </button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+        <div style="font-size:.8rem;font-weight:500;margin-bottom:12px">Your report will include:</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;font-size:.78rem;color:var(--muted);font-weight:300">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Detailed frequency response chart
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.78rem;color:var(--muted);font-weight:300">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Plain-language results summary
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.78rem;color:var(--muted);font-weight:300">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Recommended next steps
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.78rem;color:var(--muted);font-weight:300">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Nearest clinic locations and booking link
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toastMsg">Action complete</span>
+</div>
+
+<div class="overlay" id="infoModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<div class="overlay" id="resetModal">
+  <div class="modal" style="text-align:center">
+    <div style="font-size:2rem;margin-bottom:14px;color:var(--danger)"><i class="fas fa-exclamation-triangle"></i></div>
+    <div class="section-title" style="margin-bottom:10px">Reset Session?</div>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:24px;font-weight:300">This will clear all customer data and return to the start. This action cannot be undone.</div>
+    <div style="display:flex;gap:12px">
+      <button class="btn-outline" onclick="closeReset()" style="flex:1;justify-content:center">Cancel</button>
+      <button class="reset-btn" onclick="doReset()" style="flex:1;margin:0">Yes, Reset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const pages={
+  'dashboard':'Dashboard',
+  'profile':'Profile Setup',
+  'hearing-test':'Hearing Test',
+  'questionnaire':'Questionnaire',
+  'results':'Results',
+  'education':'Education Hub',
+  'store-mode':'Store Mode',
+  'email-results':'Email Results'
+};
+
+let audioCtx=null,oscillator=null,isPlaying=false;
+const freqs=[500,1000,2000,3000,4000,8000];
+let currentFreqIdx=0;
+let testProgress=0;
+let qProgress=0;
+
+// Real-time data synchronization
+let socket = null;
+let pusher = null;
+let realtimeObserver = null;
+let sessionId = localStorage.getItem('sessionId') || generateSessionId();
+
+// Chrome storage management
+class ChromeStorageManager {
+  static async save(key, data) {
+    try {
+      if (chrome && chrome.storage && chrome.storage.local) {
+        await chrome.storage.local.set({ [key]: data });
+      } else {
+        localStorage.setItem(key, JSON.stringify(data));
+      }
+      this.broadcastChange(key, data);
+    } catch (error) {
+      console.warn('Storage save failed, using localStorage:', error);
+      localStorage.setItem(key, JSON.stringify(data));
+    }
+  }
+
+  static async load(key) {
+    try {
+      if (chrome && chrome.storage && chrome.storage.local) {
+        const result = await chrome.storage.local.get([key]);
+        return result[key];
+      } else {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : null;
+      }
+    } catch (error) {
+      console.warn('Storage load failed, using localStorage:', error);
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : null;
+    }
+  }
+
+  static broadcastChange(key, data) {
+    if (socket && socket.connected) {
+      socket.emit('dataChange', { sessionId, key, data });
+    }
+    if (realtimeObserver) {
+      realtimeObserver.notify(key, data);
+    }
+  }
+}
+
+// Initialize real-time connections
+function initializeRealtime() {
+  // Socket.io connection
+  socket = io('https://realtime-hearing-app.herokuapp.com', {
+    transports: ['websocket', 'polling']
+  });
+  
+  socket.on('connect', () => {
+    console.log('Real-time connected');
+    socket.emit('joinSession', { sessionId });
+  });
+
+  socket.on('dataUpdate', (data) => {
+    if (data.sessionId !== sessionId) {
+      handleRemoteUpdate(data.key, data.value);
+    }
+  });
+
+  // Pusher connection
+  pusher = new Pusher('your-pusher-key', {
+    cluster: 'us2',
+    forceTLS: true
+  });
+  
+  const channel = pusher.subscribe(`hearing-session-${sessionId}`);
+  channel.bind('data-updated', (data) => {
+    handleRemoteUpdate(data.key, data.value);
+  });
+
+  // Real-time observer for local changes
+  realtimeObserver = new RealtimeObserver({
+    onNotify: (key, value) => {
+      console.log('Real-time update:', key, value);
+    }
+  });
+}
+
+// Handle remote updates
+function handleRemoteUpdate(key, value) {
+  switch(key) {
+    case 'currentFreqIdx':
+      currentFreqIdx = value;
+      updateFrequencyDisplay();
+      break;
+    case 'testProgress':
+      testProgress = value;
+      updateTestProgress();
+      break;
+    case 'qProgress':
+      qProgress = value;
+      updateQuestionnaireProgress();
+      break;
+    case 'userProfile':
+      updateProfileDisplay(value);
+      break;
+  }
+  showToast('Data synchronized across devices');
+}
+
+// Generate unique session ID
+function generateSessionId() {
+  return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+}
+
+// Auto-save functionality
+function autoSave() {
+  const data = {
+    currentFreqIdx,
+    testProgress,
+    qProgress,
+    timestamp: Date.now()
+  };
+  ChromeStorageManager.save('hearingTestState', data);
+}
+
+// Load saved state
+async function loadSavedState() {
+  const state = await ChromeStorageManager.load('hearingTestState');
+  if (state) {
+    currentFreqIdx = state.currentFreqIdx || 0;
+    testProgress = state.testProgress || 0;
+    qProgress = state.qProgress || 0;
+    updateFrequencyDisplay();
+    updateTestProgress();
+    updateQuestionnaireProgress();
+    showToast('Previous session restored');
+  }
+}
+
+// Update displays
+function updateFrequencyDisplay() {
+  document.getElementById('currentHz').textContent = 
+    (freqs[currentFreqIdx] >= 1000 ? (freqs[currentFreqIdx]/1000) + 'kHz' : freqs[currentFreqIdx] + ' Hz');
+}
+
+function updateTestProgress() {
+  document.getElementById('testBar').style.width = testProgress + '%';
+  document.getElementById('testPct').textContent = testProgress + '%';
+}
+
+function updateQuestionnaireProgress() {
+  document.getElementById('qBar').style.width = Math.round((qProgress/5)*100) + '%';
+  document.getElementById('qPct').textContent = qProgress + ' / 5';
+}
+
+// Enhanced navigation with real-time sync
+function navigate(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pg=document.getElementById('page-'+id);
+  if(pg)pg.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+id+"'"))n.classList.add('active');
+  });
+  if(window.innerWidth<=768)closeSidebar();
+  if(id==='results')animateScore();
+  
+  // Save current page and broadcast
+  ChromeStorageManager.save('currentPage', id);
+  autoSave();
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('active');
+}
+
+function selectOption(el){
+  const list=el.closest('.options-list');
+  list.querySelectorAll('.option-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  autoSave();
+}
+
+function advanceQ(n){
+  qProgress=n;
+  const pct=Math.round((n/5)*100);
+  document.getElementById('qBar').style.width=pct+'%';
+  document.getElementById('qPct').textContent=n+' / 5';
+  ChromeStorageManager.save('qProgress', qProgress);
+  autoSave();
+}
+
+function toggleAudio(){
+  if(isPlaying){stopAudio();return;}
+  if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  oscillator=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  oscillator.connect(gain);
+  gain.connect(audioCtx.destination);
+  oscillator.frequency.value=freqs[currentFreqIdx]||500;
+  gain.gain.value=0.15;
+  oscillator.start();
+  isPlaying=true;
+  const btn=document.getElementById('playBtn');
+  btn.classList.add('playing');
+  btn.innerHTML='<svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:#0a0d12"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+  document.querySelectorAll('#audioViz .bar').forEach((b,i)=>{
+    b.classList.add('active');
+    b.style.animationDelay=(i*0.08)+'s';
+  });
+  ChromeStorageManager.save('isPlaying', true);
+}
+
+function stopAudio(){
+  if(oscillator){oscillator.stop();oscillator=null;}
+  isPlaying=false;
+  const btn=document.getElementById('playBtn');
+  btn.classList.remove('playing');
+  btn.innerHTML='<svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:#0a0d12"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+  document.querySelectorAll('#audioViz .bar').forEach(b=>b.classList.remove('active'));
+  ChromeStorageManager.save('isPlaying', false);
+}
+
+function heardTone(heard){
+  stopAudio();
+  document.querySelectorAll('.can-btn').forEach(b=>b.classList.remove('active'));
+  if(heard)document.querySelector('.can-btn.yes').classList.add('active');
+  else document.querySelector('.can-btn.no').classList.add('active');
+  currentFreqIdx=Math.min(currentFreqIdx+1,freqs.length-1);
+  const pct=Math.round(((currentFreqIdx)/freqs.length)*100);
+  testProgress=pct;
+  document.getElementById('testBar').style.width=pct+'%';
+  document.getElementById('testPct').textContent=pct+'%';
+  document.getElementById('currentHz').textContent=(freqs[currentFreqIdx]>=1000?(freqs[currentFreqIdx]/1000)+'kHz':freqs[currentFreqIdx]+' Hz');
+  if(currentFreqIdx>=freqs.length-1){
+    setTimeout(()=>navigate('questionnaire'),600);
+  }
+  ChromeStorageManager.save('currentFreqIdx', currentFreqIdx);
+  ChromeStorageManager.save('testProgress', testProgress);
+  showToast(heard?'Tone heard — moving to next frequency':'Noted — moving to next frequency');
+}
+
+function restartTest(){
+  stopAudio();
+  currentFreqIdx=0;
+  document.getElementById('testBar').style.width='0%';
+  document.getElementById('testPct').textContent='0%';
+  document.getElementById('currentHz').textContent='500 Hz';
+  document.querySelectorAll('.can-btn').forEach(b=>b.classList.remove('active'));
+  ChromeStorageManager.save('currentFreqIdx', 0);
+  ChromeStorageManager.save('testProgress', 0);
+  showToast('Test restarted');
+}
+
+function animateScore(){
+  const circle=document.getElementById('scoreCircle');
+  const circumference=364.4;
+  const score=67;
+  const offset=circumference-(score/100*circumference);
+  setTimeout(()=>{circle.style.strokeDashoffset=offset;},200);
+  let count=0;
+  const el=document.getElementById('scoreNum');
+  const timer=setInterval(()=>{
+    count+=2;if(count>=score){count=score;clearInterval(timer);}
+    el.textContent=count;
+  },20);
+}
+
+function showQR(){
+  const s=document.getElementById('qrSection');
+  s.style.display=s.style.display==='none'?'block':'none';
+  if(s.style.display==='block')showToast('QR code generated');
+}
+
+function confirmReset(){document.getElementById('resetModal').classList.add('active');}
+function closeReset(){document.getElementById('resetModal').classList.remove('active');}
+function doReset(){
+  closeReset();
+  currentFreqIdx=0;qProgress=0;testProgress=0;
+  ChromeStorageManager.save('currentFreqIdx', 0);
+  ChromeStorageManager.save('qProgress', 0);
+  ChromeStorageManager.save('testProgress', 0);
+  navigate('dashboard');
+  showToast('Session cleared — ready for next customer');
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+const infoData={
+  ageRelated:{title:'Presbycusis: Age-Related Hearing Loss',body:'Presbycusis is the gradual loss of hearing that occurs as we age. It is one of the most common conditions affecting older adults. It usually affects both ears equally and progresses slowly. High-pitched sounds become harder to hear first — think consonants like S, F, and TH. With modern hearing aids, most people with presbycusis can dramatically improve their quality of life.'},
+  tinnitus:{title:'Understanding Tinnitus',body:'Tinnitus is the perception of noise — ringing, buzzing, hissing — with no external source. Around 15% of adults experience it. It can be constant or intermittent. Causes include noise exposure, age-related changes, and ear blockages. While there is no cure, sound therapy, hearing aids with tinnitus programs, and lifestyle adjustments can provide significant relief.'},
+  hearingAids:{title:'Modern Hearing Aids',body:'Today\'s hearing aids are sophisticated digital devices that can filter background noise, stream audio from phones, and adapt automatically to different environments. Styles range from discreet completely-in-canal models to powerful behind-the-ear devices. Most are now rechargeable and water-resistant. A proper fitting by an audiologist is key to getting the best results.'},
+  noiseInduced:{title:'Noise-Induced Hearing Loss',body:'Exposure to sounds above 85 decibels over time can permanently damage the hair cells in your cochlea. This is the second leading cause of hearing loss after aging. Concerts, power tools, and even earbuds at high volume can contribute. The good news: it is entirely preventable with proper hearing protection and sensible listening habits.'}
+};
+
+function openInfoModal(key){
+  const d=infoData[key];
+  if(!d)return;
+  document.getElementById('modalContent').innerHTML=`<div style="font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Education</div><div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:400;margin-bottom:16px;line-height:1.3">${d.title}</div><div style="font-size:.84rem;color:var(--muted);line-height:1.75;font-weight:300">${d.body}</div><button class="btn-primary" style="margin-top:24px" onclick="navigate('profile');closeModal()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Start Your Assessment</button>`;
+  document.getElementById('infoModal').classList.add('active');
+}
+function closeModal(){document.getElementById('infoModal').classList.remove('active');}
+
+function sendEmail(){
+  const formData = {
+    firstName: document.querySelector('input[placeholder="Margaret"]').value,
+    lastName: document.querySelector('input[placeholder="Williams"]').value,
+    email: document.querySelector('input[type="email"]').value,
+    phone: document.querySelector('input[type="tel"]').value,
+    consent1: document.getElementById('consent1').checked,
+    consent2: document.getElementById('consent2').checked,
+    sessionId: sessionId
+  };
+  
+  ChromeStorageManager.save('emailFormData', formData);
+  showToast('Results sent! Check your inbox shortly.');
+  setTimeout(()=>navigate('results'),1000);
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+  initializeRealtime();
+  loadSavedState();
+  
+  // Auto-save every 30 seconds
+  setInterval(autoSave, 30000);
+  
+  // Handle page visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      loadSavedState();
+    }
+  });
+});
+
+document.getElementById('infoModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+</script>
+</body>
+</html>
